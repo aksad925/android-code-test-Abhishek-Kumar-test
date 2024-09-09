@@ -6,11 +6,14 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
 import biz.filmeroo.premier.R
 import biz.filmeroo.premier.api.ApiFilm
 import biz.filmeroo.premier.api.FilmService
+import biz.filmeroo.premier.api.SimilarMovie
+import biz.filmeroo.premier.api.SimilarMovieResponse
 import biz.filmeroo.premier.databinding.ActivityDetailBinding
-import biz.filmeroo.premier.detail.FilmDetailViewModel.FilmDetailState
+import biz.filmeroo.premier.main.SimilarFilmAdapter
 import com.squareup.picasso.Picasso
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -20,6 +23,9 @@ class FilmDetailActivity : AppCompatActivity() {
 
     @Inject
     internal lateinit var picasso: Picasso
+
+    @Inject
+    internal lateinit var similarFilmAdapter: SimilarFilmAdapter
 
     private lateinit var binding: ActivityDetailBinding
 
@@ -33,13 +39,31 @@ class FilmDetailActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         binding.toolbar.setNavigationOnClickListener { finish() }
         filmDetailViewModel.filmDetailState.observe(this, ::updateState)
+        filmDetailViewModel.filmSimilarState.observe(this, ::updateSimilarMovieState)
     }
 
-    private fun updateState(filmDetailState: FilmDetailState) {
+    private fun updateState(filmDetailState: FilmDetailViewModel.FilmState<ApiFilm>) {
         when (filmDetailState) {
-            is FilmDetailState.Success -> displayMovie(filmDetailState.film)
-            FilmDetailState.Error -> displayError()
+            is FilmDetailViewModel.FilmState.Success -> displayMovie(filmDetailState.data)
+            FilmDetailViewModel.FilmState.Error -> displayError()
         }
+    }
+
+    private fun updateSimilarMovieState(similarFilmState: FilmDetailViewModel.FilmState<SimilarMovieResponse>) {
+        when (similarFilmState) {
+            is FilmDetailViewModel.FilmState.Success -> displaySimilarMovie(similarFilmState.data.results)
+            FilmDetailViewModel.FilmState.Error -> displayError()
+        }
+    }
+
+    private fun displaySimilarMovie(data: List<SimilarMovie>) {
+        binding.similarMoviesRecyclerView.apply {
+            adapter = similarFilmAdapter
+            setHasFixedSize(true)
+            layoutManager =
+                LinearLayoutManager(this@FilmDetailActivity, LinearLayoutManager.HORIZONTAL, false)
+        }
+        similarFilmAdapter.submitList(data)
     }
 
     private fun displayMovie(movie: ApiFilm) {

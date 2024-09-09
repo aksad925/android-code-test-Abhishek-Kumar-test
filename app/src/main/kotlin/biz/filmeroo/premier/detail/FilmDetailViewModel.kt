@@ -1,9 +1,11 @@
 package biz.filmeroo.premier.detail
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import biz.filmeroo.premier.api.ApiFilm
+import biz.filmeroo.premier.api.SimilarMovieResponse
 import biz.filmeroo.premier.base.BaseViewModel
 import biz.filmeroo.premier.main.FilmRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,10 +20,14 @@ internal class FilmDetailViewModel @Inject constructor(
 ) : BaseViewModel() {
 
     private val filmId: Long = savedStateHandle.get<Long>(FILM_ID)!!
-    private val _filmDetailState = MutableLiveData<FilmDetailState>()
+    private val _filmDetailState = MutableLiveData<FilmState<ApiFilm>>()
+    private val _filmSimilarState = MutableLiveData<FilmState<SimilarMovieResponse>>()
 
-    val filmDetailState: LiveData<FilmDetailState>
+    val filmDetailState: LiveData<FilmState<ApiFilm>>
         get() = _filmDetailState
+
+    val filmSimilarState: LiveData<FilmState<SimilarMovieResponse>>
+        get() = _filmSimilarState
 
     init {
         addSubscription(
@@ -29,8 +35,21 @@ internal class FilmDetailViewModel @Inject constructor(
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
-                    { _filmDetailState.value = FilmDetailState.Success(it) },
-                    { _filmDetailState.value = FilmDetailState.Error }
+                    { _filmDetailState.value = FilmState.Success(it) },
+                    { _filmDetailState.value = FilmState.Error }
+                )
+        )
+
+        addSubscription(
+            filmRepository.fetchSimilarMovies(filmId)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                    { _filmSimilarState.value = FilmState.Success(it) },
+                    {
+                        Log.d("Abhishek", ":Exception is $it ")
+                        _filmSimilarState.value = FilmState.Error
+                    }
                 )
         )
     }
@@ -39,8 +58,8 @@ internal class FilmDetailViewModel @Inject constructor(
         internal const val FILM_ID = "filmId"
     }
 
-    sealed interface FilmDetailState {
-        data class Success(val film: ApiFilm) : FilmDetailState
-        object Error : FilmDetailState
+    sealed class FilmState<out T> {
+        data class Success<out T>(val data: T) : FilmState<T>()
+        data object Error : FilmState<Nothing>()
     }
 }
